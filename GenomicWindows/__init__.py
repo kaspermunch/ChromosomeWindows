@@ -405,13 +405,18 @@ def stats_data_frame(list_of_stat_results, func):
                             columns=['start', 'end', func.__name__])
 
 
-def genomic_windows(full_df, func, bin_iter):
+def genomic_windows(full_df, func, bin_iter, fill=True):
 
     def process(buf):
-        df = pd.DataFrame(buf)
-        df.loc[df.start < bin_start, 'start'] = bin_start
-        df.loc[df.end > bin_start + bin_size, 'end'] = bin_start + bin_size
-        list_of_stat_results.append(([bin_start, bin_start + bin_size], func(df)))
+        try:
+            df = pd.DataFrame(buf)
+            df.loc[df.start < bin_start, 'start'] = bin_start
+            df.loc[df.end > bin_start + bin_size, 'end'] = bin_start + bin_size
+        except AttributeError:
+            list_of_stat_results.append(([bin_start, bin_start + bin_size], fill))
+        else:
+            list_of_stat_results.append(([bin_start, bin_start + bin_size], func(df)))
+
 
     list_of_stat_results = list()
     
@@ -419,7 +424,7 @@ def genomic_windows(full_df, func, bin_iter):
     buf = list()
     for row_sr in full_df.itertuples():
         while row_sr.start >= bin_start + bin_size:
-            if buf:
+            if buf or fill is not None:
                 process(buf)
             bin_start, bin_size = bin_iter.next()
             buf = [x for x in buf if x.end > bin_start]
@@ -445,14 +450,13 @@ def get_bin_iterator(full_df, binsize, logbase, even):
     return bin_iter
 
 
-def window(size=None, logbase=1, even=None):
+def window(size=None, logbase=1, even=None, fill=None):
     def window_decorator(func):
         @wraps(func)
         def func_wrapper(full_df):
-
             bin_iter = get_bin_iterator(full_df, size, logbase, even)
 
-            return genomic_windows(full_df, func, bin_iter)
+            return genomic_windows(full_df, func, bin_iter, fill=fill)
 
         return func_wrapper
     return window_decorator
@@ -545,8 +549,14 @@ if __name__ == "__main__":
     print(df.index)
     #print(df.reset_index())
 
+    # TODO: 
+    # make sure exceptions fro the stats functions are raised properly
+    # Also dangerous that AttributeError in the stats function silently makes it fill with the fill stats
 
     # next question: What happens when we group by the index (can we do that?) - and if so: should
     # we then still add the "groupby" columns to the resulting dataframes?
     
+
+    # also next: I should use a by_chrom decorator like in GenomicIntervals to make windows handle separate choromosomes. 
+    # That would still allow me to group by chormosomes (then there will just be one chrom in each df) if need be.
 
