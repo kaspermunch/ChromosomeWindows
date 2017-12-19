@@ -553,6 +553,8 @@ if __name__ == "__main__":
     # make sure exceptions fro the stats functions are raised properly
     # Also dangerous that AttributeError in the stats function silently makes it fill with the fill stats
 
+    # the stats function should also be allowed to return a dataframe instead of a dict
+
     # next question: What happens when we group by the index (can we do that?) - and if so: should
     # we then still add the "groupby" columns to the resulting dataframes?
     
