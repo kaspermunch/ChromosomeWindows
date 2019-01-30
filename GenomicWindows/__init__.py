@@ -399,10 +399,12 @@ def stats_data_frame(list_of_stat_results, func):
     if type(stats[0]) is dict:
         d = OrderedDict(zip(('start', 'end'), zip(*coordinates)))
         d.update(concat_dicts(stats))
-        return pd.DataFrame(d)
+        df = pd.DataFrame(d)
     else:
-        return pd.DataFrame([x + [y] for x, y in list_of_stat_results],
+        df = pd.DataFrame([x + [y] for x, y in list_of_stat_results],
                             columns=['start', 'end', func.__name__])
+    return df.reset_index(level=[x for x in df.index.names if x is not None])
+        
 
 
 def genomic_windows(full_df, func, bin_iter, fill=True):
