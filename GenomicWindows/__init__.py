@@ -356,58 +356,6 @@ def concat_dicts(l):
     return d
 
 
-# def window(size=None, logbase=1, fixed=None, even=None):
-#     def window_decorator(func):
-#         @wraps(func)
-#         def func_wrapper(full_df):
-
-#             assert not(fixed and even), "only fixed or even bins - not both"
-#             if even is None:
-#                 get_bin = iter(WindowCoordinates(binsize=size, logbase=logbase, 
-#                                                  bins=fixed))
-#             else:
-#                 get_bin = iter(WindowCoordinates(binsize=size, logbase=logbase, 
-#                                                  bins=even_windows(full_df, even)))
-
-#             bin_start, bin_size = get_bin.next()
-
-#             buf = list()
-#             list_of_stat_results = list()
-
-#             def process(buf):
-#                 df = pd.DataFrame(buf)
-#                 df.loc[df.start < bin_start, 'start'] = bin_start
-#                 df.loc[df.end > bin_start + bin_size, 'end'] = bin_start + bin_size
-#                 list_of_stat_results.append(([bin_start, bin_start + bin_size], func(df)))
-
-#             for row_sr in full_df.itertuples():
-#                 while row_sr.start >= bin_start + bin_size:
-#                     if buf:
-#                         process(buf)
-#                     bin_start, bin_size = get_bin.next()
-#                     buf = [x for x in buf if x.end > bin_start]
-#                 buf.append(row_sr)
-
-#             # empty buffer
-#             while buf:
-#                 process(buf)
-#                 bin_start, bin_size = get_bin.next()
-#                 buf = [x for x in buf if x.end > bin_start]
-
-#             coordinates, stats = zip(*list_of_stat_results)
-#             if type(stats[0]) is dict:
-#                 d = OrderedDict(zip(('start', 'end'), zip(*coordinates)))
-#                 d.update(_concat_dicts(stats))
-#                 return pd.DataFrame(d)#.drop([0], axis=1)
-
-#             else:
-#                 return pd.DataFrame([x + [y] for x, y in list_of_stat_results],
-#                                     columns=['start', 'end', func.__name__])
-
-#         return func_wrapper
-#     return window_decorator
-
-
 def stats_data_frame(list_of_stat_results, func):
 
     coordinates, stats = zip(*list_of_stat_results)
@@ -421,18 +369,9 @@ def stats_data_frame(list_of_stat_results, func):
     return df
         
 
-
 def genomic_windows(full_df, func, bin_iter, empty=True):
 
     def process(buf):
-        # try:
-        #     df = pd.DataFrame(buf)
-        #     df.loc[df.start < bin_start, 'start'] = bin_start
-        #     df.loc[df.end > bin_start + bin_size, 'end'] = bin_start + bin_size
-        # except AttributeError:
-        #     list_of_stat_results.append(([bin_start, bin_start + bin_size], fill))
-        # else:
-        #     list_of_stat_results.append(([bin_start, bin_start + bin_size], func(df)))
         if buf:
             df = pd.DataFrame(buf)
             df.loc[df.start < bin_start, 'start'] = bin_start
@@ -571,7 +510,6 @@ if __name__ == "__main__":
 
     print(full_df.groupby('chrom').apply(count1))#.reset_index())
 
-    sys.exit()
 
     print(full_df.groupby(['chrom', 'bar']).apply(count1))
     #print(full_df.groupby(['chrom', 'bar']).apply(count1).reset_index())
