@@ -31,8 +31,23 @@ import unittest, itertools
    ###
 
 
-# in each case test:
-# 
+
+# import glob
+# import os
+
+# chrom_sizes = dict()
+# for p in glob.glob('/Users/kmt/Downloads/igv-master/genomes/sizes/*.sizes'):
+#     name = os.path.basename(p).replace('.chrom.sizes', '')
+#     with open(p) as f:
+#         d = dict(l.split()[:2] for l in f)
+#     chrom_sizes[name] = d
+
+# print('chrom_sizes = {')
+# for chrom, d in chrom_sizes.items():
+#     print("'{}': {}".format(chrom, repr(d)))
+# print('}')
+
+from chrom_sizes import chrom_sizes
 
 def print_intervals(df):
     starts, ends = list(df['start']), list(df['end'])
@@ -407,17 +422,28 @@ def stats_data_frame(list_of_stat_results, func):
         
 
 
-def genomic_windows(full_df, func, bin_iter, fill=True):
+def genomic_windows(full_df, func, bin_iter, empty=True):
 
     def process(buf):
-        try:
+        # try:
+        #     df = pd.DataFrame(buf)
+        #     df.loc[df.start < bin_start, 'start'] = bin_start
+        #     df.loc[df.end > bin_start + bin_size, 'end'] = bin_start + bin_size
+        # except AttributeError:
+        #     list_of_stat_results.append(([bin_start, bin_start + bin_size], fill))
+        # else:
+        #     list_of_stat_results.append(([bin_start, bin_start + bin_size], func(df)))
+        if buf:
             df = pd.DataFrame(buf)
             df.loc[df.start < bin_start, 'start'] = bin_start
             df.loc[df.end > bin_start + bin_size, 'end'] = bin_start + bin_size
-        except AttributeError:
-            list_of_stat_results.append(([bin_start, bin_start + bin_size], fill))
-        else:
             list_of_stat_results.append(([bin_start, bin_start + bin_size], func(df)))
+        else:
+            try:
+                list_of_stat_results.append(([bin_start, bin_start + bin_size], func(pd.DataFrame())))
+            except:
+                print("Decorated function does not handle empty windows", file=sys.stderr)
+                raise
 
 
     list_of_stat_results = list()
@@ -426,7 +452,7 @@ def genomic_windows(full_df, func, bin_iter, fill=True):
     buf = list()
     for row_sr in full_df.itertuples():
         while row_sr.start >= bin_start + bin_size:
-            if buf or fill is not None:
+            if buf or empty:
                 process(buf)
             bin_start, bin_size = bin_iter.next()
             buf = [x for x in buf if x.end > bin_start]
@@ -452,15 +478,39 @@ def get_bin_iterator(full_df, binsize, logbase, even):
     return bin_iter
 
 
-def window(size=None, logbase=1, even=None, fill=None):
+def get_chrom(df):
+
+    values = df['chrom'].unique()
+    assert len(values) == 1
+    return values[0]
+
+
+def right_fill(df, func, size, fill, chrom):
+
+    chrom_size = chrom_sizes[fill][chrom]
+    lst = list()
+    for start in range(df['end'].max(), chrom_size, size):
+        lst.append(([start, start+size], func(pd.DataFrame())))
+    extra = stats_data_frame(lst, func)
+    return pd.concat([df, extra], sort=False)
+
+
+def window(size=None, logbase=1, even=None, empty=True, fill=None):
+
     def window_decorator(func):
+
         @wraps(func)
         def func_wrapper(full_df):
-            bin_iter = get_bin_iterator(full_df, size, logbase, even)
 
-            return genomic_windows(full_df, func, bin_iter, fill=fill)
+            bin_iter = get_bin_iterator(full_df, size, logbase, even)
+            window_data = genomic_windows(full_df, func, bin_iter, empty=empty)
+            if fill:
+                assert not even and not logbase != 1 and fill
+                window_data = right_fill(window_data, func, size, fill, get_chrom(full_df))
+            return window_data
 
         return func_wrapper
+
     return window_decorator
 
 
@@ -488,14 +538,23 @@ def store_groupby_apply(store_file_name, col_names, fun, df_name='df', group_key
 
 if __name__ == "__main__":
 
-    #unittest.main()
+    # unittest.main()
+
+
+    # SEE WHAT I DO IN THE ADMIXTURE NOTEBOOK TO MAKE SURE IT IS BACKWARDS COMPATIBLE...
 
 
     full_df = pd.DataFrame({'chrom': ['chr1']+['chr2']*10,
-                        'start': list(range(11)),
-                        'end': list(map(sum, zip(range(11), [5, 1]*5+[20]))),
+                        'start': list(range(10)) + [40],
+                        'end': list(map(sum, zip(range(10), [5, 1]*5+[20]))) + [45],
                         'value': 'AAA',
                        'foo': 7, 'bar': 9, 'baz' : 4})
+
+    # full_df = pd.DataFrame({'chrom': ['chr1']+['chr2']*10,
+    #                     'start': list(range(11)),
+    #                     'end': list(map(sum, zip(range(11), [5, 1]*5+[20]))),
+    #                     'value': 'AAA',
+    #                    'foo': 7, 'bar': 9, 'baz' : 4})
     print(full_df)
 
     # call this function windows of size 5
@@ -503,10 +562,20 @@ if __name__ == "__main__":
     def count1(df):
         return len(df.index)
 
+    print(full_df.groupby('chrom').apply(count1))#.reset_index())
+
+    # call this function windows of size 5
+    @window(size=10000000, empty=True, fill='hg19')
+    def count1(df):
+        return len(df.index)
+
+    print(full_df.groupby('chrom').apply(count1))#.reset_index())
+
+    sys.exit()
+
     print(full_df.groupby(['chrom', 'bar']).apply(count1))
     #print(full_df.groupby(['chrom', 'bar']).apply(count1).reset_index())
 
-    print(full_df.groupby('chrom').apply(count1))#.reset_index())
 
     # call this function on windows beginning at size 2 increasing by log 2
     @window(size=2, logbase=2)
@@ -541,15 +610,15 @@ if __name__ == "__main__":
 
 #    write_df_store(full_df2, 'groupby.h5')
 
-    # write the data frame to a hdf5 store
-    with pd.get_store('groupby.h5') as store:
-        store.append('df', full_df, data_columns=['chrom', 'baz'], table=True, append=False)
+    # # write the data frame to a hdf5 store
+    # with pd.get_store('groupby.h5') as store:
+    #     store.append('df', full_df, data_columns=['chrom', 'baz'], table=True, append=False)
 
-    # perform the same groupby and apply operation as on the data frame
-    df = store_groupby_apply('groupby.h5', ['chrom', 'baz'], stats_fun)
-    print(df)
-    print(df.index)
-    #print(df.reset_index())
+    # # perform the same groupby and apply operation as on the data frame
+    # df = store_groupby_apply('groupby.h5', ['chrom', 'baz'], stats_fun)
+    # print(df)
+    # print(df.index)
+    # #print(df.reset_index())
 
     # TODO: 
     # make sure exceptions fro the stats functions are raised properly
