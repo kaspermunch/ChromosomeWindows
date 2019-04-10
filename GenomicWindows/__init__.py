@@ -47,7 +47,9 @@ import unittest, itertools
 #     print("'{}': {}".format(chrom, repr(d)))
 # print('}')
 
-from chrom_sizes import chrom_sizes
+from GenomicWindows.chrom_sizes import chrom_sizes
+
+
 
 def print_intervals(df):
     starts, ends = list(df['start']), list(df['end'])
@@ -426,12 +428,24 @@ def get_chrom(df):
 
 def right_fill(df, func, size, fill, chrom):
 
-    chrom_size = chrom_sizes[fill][chrom]
+    try:
+        chrom_size = chrom_sizes[fill][chrom]
+    except KeyError:
+        if not chrom.startswith('chr'):
+            chrom_size = chrom_sizes[fill]['chr'+chrom]
+        else:
+            raise
+            
+    # check if filling is not needed
+    if df['end'].max() >= chrom_size:
+        return df
+    
     lst = list()
     for start in range(df['end'].max(), chrom_size, size):
         lst.append(([start, start+size], func(pd.DataFrame())))
     extra = stats_data_frame(lst, func)
-    return pd.concat([df, extra], sort=False)
+#    return pd.concat([df, extra], sort=False)
+    return pd.concat([df, extra])
 
 
 def window(size=None, logbase=1, even=None, empty=True, fill=None):
