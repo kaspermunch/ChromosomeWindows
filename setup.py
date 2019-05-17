@@ -1,11 +1,11 @@
 
 from setuptools import setup
 
-setup(name='GenomicWindows',
+setup(name='ChromosomeWindows',
       version='1.1',
       description='Utilities for working with windows on a chromosome.',
-      url='https://github.com/kaspermunch/GenomicWindows',
+      url='https://github.com/kaspermunch/ChromosomeWindows',
       author='Kasper Munch',
-      packages=['GenomicWindows'],
+      packages=['ChromosomeWindows'],
       zip_safe=False)
 
