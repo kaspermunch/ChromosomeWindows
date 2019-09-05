@@ -47,7 +47,7 @@ import unittest, itertools
 #     print("'{}': {}".format(chrom, repr(d)))
 # print('}')
 
-from GenomicWindows.chrom_sizes import chrom_sizes
+from ChromosomeWindows.chrom_sizes import chrom_sizes
 
 
 
